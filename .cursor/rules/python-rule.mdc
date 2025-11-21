@@ -1,0 +1,24 @@
+---
+description: "Python開発ルール"  
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Python開発ルール
+
+## 使用技術
+- Python 3.11+
+- FastAPI
+- Pydantic
+- pytest
+
+## 必ず守ること
+- 型ヒントを必ず書く
+- docstringをGoogle形式で書く
+- PEP 8に従う
+- エラーハンドリングを忘れない
+
+## 命名規則
+- 関数: snake_case
+- クラス: PascalCase
+- 定数: UPPER_CASE

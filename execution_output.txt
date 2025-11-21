@@ -1,0 +1,8 @@
+﻿python.exe : Python 
+発生場所 行:1 文字:49
++ ... .Encoding]::UTF8; python.exe scrape_earnings_schedule.py 2>&1 | Out-F ...
++                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Python :String) [], RemoteExcepti 
+   on
+    + FullyQualifiedErrorId : NativeCommandError
+ 
