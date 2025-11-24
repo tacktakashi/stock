@@ -349,6 +349,187 @@ class EarningsScheduleScraper:
         
         return result
     
+    def extract_52week_prices(self, stock_code: str) -> Dict[str, str]:
+        """
+        チャートページから52週高値・安値・現在値を抽出
+        
+        Args:
+            stock_code: 銘柄コード
+        
+        Returns:
+            52週高値・安値・現在値の辞書
+        """
+        result = {
+            '52週高値': 'N/A',
+            '52週安値': 'N/A',
+            '現在値': 'N/A'
+        }
+        
+        if not stock_code:
+            return result
+        
+        try:
+            chart_url = f"https://kabuyoho.jp/reportChart?bcode={stock_code}"
+            soup = self.fetch_page_silent(chart_url)
+            if not soup:
+                return result
+            
+            # テーブルから52週高値・安値を探す
+            tables = soup.find_all('table')
+            for table in tables:
+                rows = table.find_all('tr')
+                for row in rows:
+                    # th要素でラベルを探す
+                    th = row.find('th')
+                    if not th:
+                        continue
+                    
+                    label = th.get_text(strip=True)
+                    td = row.find('td')
+                    
+                    # 52週高値を探す
+                    if '52週高値' in label and result['52週高値'] == 'N/A':
+                        if td:
+                            # span要素のクラス名で探す（week52_high）
+                            high_span = td.find('span', class_=re.compile(r'week52_high'))
+                            if high_span:
+                                value_text = high_span.get_text(strip=True)
+                                # カンマを除去して数値に変換
+                                value_clean = value_text.replace(',', '')
+                                try:
+                                    high_val = float(value_clean)
+                                    if high_val > 0:
+                                        result['52週高値'] = str(high_val)
+                                except ValueError:
+                                    pass
+                            else:
+                                # span要素が見つからない場合、tdのテキストから抽出
+                                value_text = td.get_text(strip=True)
+                                value_clean = re.search(r'([0-9,]+\.?\d*)', value_text.replace(',', ''))
+                                if value_clean:
+                                    try:
+                                        high_val = float(value_clean.group(1))
+                                        if high_val > 0:
+                                            result['52週高値'] = str(high_val)
+                                    except ValueError:
+                                        pass
+                    
+                    # 52週安値を探す
+                    if '52週安値' in label and result['52週安値'] == 'N/A':
+                        if td:
+                            # span要素のクラス名で探す（week52_low）
+                            low_span = td.find('span', class_=re.compile(r'week52_low'))
+                            if low_span:
+                                value_text = low_span.get_text(strip=True)
+                                # カンマを除去して数値に変換
+                                value_clean = value_text.replace(',', '')
+                                try:
+                                    low_val = float(value_clean)
+                                    if low_val > 0:
+                                        result['52週安値'] = str(low_val)
+                                except ValueError:
+                                    pass
+                            else:
+                                # span要素が見つからない場合、tdのテキストから抽出
+                                value_text = td.get_text(strip=True)
+                                value_clean = re.search(r'([0-9,]+\.?\d*)', value_text.replace(',', ''))
+                                if value_clean:
+                                    try:
+                                        low_val = float(value_clean.group(1))
+                                        if low_val > 0:
+                                            result['52週安値'] = str(low_val)
+                                    except ValueError:
+                                        pass
+                    
+                    # 現在値を探す
+                    if '現在値' in label and result['現在値'] == 'N/A':
+                        if td:
+                            # span要素のクラス名で探す（close_price）
+                            current_span = td.find('span', class_=re.compile(r'close_price'))
+                            if current_span:
+                                value_text = current_span.get_text(strip=True)
+                                # カンマを除去して数値に変換
+                                value_clean = value_text.replace(',', '')
+                                try:
+                                    current_val = float(value_clean)
+                                    if current_val > 0:
+                                        result['現在値'] = str(current_val)
+                                except ValueError:
+                                    pass
+                            else:
+                                # span要素が見つからない場合、tdのテキストから抽出
+                                value_text = td.get_text(strip=True)
+                                value_clean = re.search(r'([0-9,]+\.?\d*)', value_text.replace(',', ''))
+                                if value_clean:
+                                    try:
+                                        current_val = float(value_clean.group(1))
+                                        if current_val > 0:
+                                            result['現在値'] = str(current_val)
+                                    except ValueError:
+                                        pass
+            
+            # テーブルで見つからなかった場合、テキストから探す
+            if result['52週高値'] == 'N/A' or result['52週安値'] == 'N/A' or result['現在値'] == 'N/A':
+                page_text = soup.get_text()
+                
+                # 52週高値を探す
+                if result['52週高値'] == 'N/A':
+                    high_patterns = [
+                        r'52週高値[：:\s]*([0-9,]+\.?\d*)',
+                        r'52週.*高値[：:\s]*([0-9,]+\.?\d*)',
+                    ]
+                    for pattern in high_patterns:
+                        match = re.search(pattern, page_text)
+                        if match:
+                            high_value = match.group(1).replace(',', '')
+                            try:
+                                high_val = float(high_value)
+                                if high_val > 0:
+                                    result['52週高値'] = str(high_val)
+                                    break
+                            except ValueError:
+                                continue
+                
+                # 52週安値を探す
+                if result['52週安値'] == 'N/A':
+                    low_patterns = [
+                        r'52週安値[：:\s]*([0-9,]+\.?\d*)',
+                        r'52週.*安値[：:\s]*([0-9,]+\.?\d*)',
+                    ]
+                    for pattern in low_patterns:
+                        match = re.search(pattern, page_text)
+                        if match:
+                            low_value = match.group(1).replace(',', '')
+                            try:
+                                low_val = float(low_value)
+                                if low_val > 0:
+                                    result['52週安値'] = str(low_val)
+                                    break
+                            except ValueError:
+                                continue
+                
+                # 現在値を探す
+                if result['現在値'] == 'N/A':
+                    current_patterns = [
+                        r'現在値[：:\s]*([0-9,]+\.?\d*)',
+                    ]
+                    for pattern in current_patterns:
+                        match = re.search(pattern, page_text)
+                        if match:
+                            current_value = match.group(1).replace(',', '')
+                            try:
+                                current_val = float(current_value)
+                                if current_val > 0:
+                                    result['現在値'] = str(current_val)
+                                    break
+                            except ValueError:
+                                continue
+            
+        except Exception as e:
+            print(f"  52週高値・安値の取得エラー (銘柄コード: {stock_code}): {e}")
+        
+        return result
+    
     def save_to_csv(self, data: List[Dict], filename: str):
         """CSVファイルに保存"""
         if not data:
@@ -458,7 +639,7 @@ def main():
         print("決算カレンダー データ抽出スクリプト（複数ページ対応）")
         print("=" * 60)
         
-        base_url = "https://kabuyoho.jp/calender?lst=20251119&ym=202511&sett=&publ=off#stocklist"
+        base_url = "https://kabuyoho.jp/calender?lst=20251125&ym=202511&sett=&publ=off#stocklist"
         
         scraper = EarningsScheduleScraper()
         
@@ -532,18 +713,50 @@ def main():
             print(f"全ページから合計 {len(all_data)} 件のデータを抽出しました")
             print(f"{'=' * 60}\n")
             
-            # 各会社の詳細ページからPER、PBR、配当利回りを取得
+            # 各会社の詳細ページからPER、PBR、配当利回り、52週高値・安値を取得
             print("各会社の詳細情報を取得中...")
             print("=" * 60)
             for i, item in enumerate(all_data, 1):
                 detail_url = item.get('詳細ページURL', '')
+                stock_code = item.get('銘柄コード', '')
+                
                 if detail_url:
                     print(f"[{i}/{len(all_data)}] {item['会社名']} の詳細情報を取得中...", end=' ')
                     details = scraper.extract_company_details(detail_url)
                     item['PER'] = details['PER']
                     item['PBR'] = details['PBR']
                     item['配当利回り'] = details['配当利回り']
-                    print(f"PER: {item['PER']}, PBR: {item['PBR']}, 配当利回り: {item['配当利回り']}")
+                    
+                    # 52週高値・安値・現在値を取得
+                    if stock_code:
+                        week52_prices = scraper.extract_52week_prices(stock_code)
+                        item['52週高値'] = week52_prices['52週高値']
+                        item['52週安値'] = week52_prices['52週安値']
+                        item['現在値'] = week52_prices['現在値']
+                        
+                        # 指標を計算: (現在値 - 52週安値) ÷ (52週高値 - 52週安値)
+                        try:
+                            current_val = float(item['現在値']) if item['現在値'] != 'N/A' else None
+                            high_val = float(item['52週高値']) if item['52週高値'] != 'N/A' else None
+                            low_val = float(item['52週安値']) if item['52週安値'] != 'N/A' else None
+                            
+                            if current_val is not None and high_val is not None and low_val is not None:
+                                if high_val > low_val:  # ゼロ除算を防ぐ
+                                    indicator = (current_val - low_val) / (high_val - low_val)
+                                    item['指標'] = f"{indicator:.4f}"
+                                else:
+                                    item['指標'] = 'N/A'
+                            else:
+                                item['指標'] = 'N/A'
+                        except (ValueError, TypeError):
+                            item['指標'] = 'N/A'
+                    else:
+                        item['52週高値'] = 'N/A'
+                        item['52週安値'] = 'N/A'
+                        item['現在値'] = 'N/A'
+                        item['指標'] = 'N/A'
+                    
+                    print(f"PER: {item['PER']}, PBR: {item['PBR']}, 配当利回り: {item['配当利回り']}, 現在値: {item['現在値']}, 52週高値: {item['52週高値']}, 52週安値: {item['52週安値']}, 指標: {item.get('指標', 'N/A')}")
                     # サーバー負荷を考慮して少し待機
                     time.sleep(0.5)
                 else:
@@ -551,6 +764,10 @@ def main():
                     item['PER'] = 'N/A'
                     item['PBR'] = 'N/A'
                     item['配当利回り'] = 'N/A'
+                    item['52週高値'] = 'N/A'
+                    item['52週安値'] = 'N/A'
+                    item['現在値'] = 'N/A'
+                    item['指標'] = 'N/A'
             
             print("=" * 60)
             
@@ -572,14 +789,14 @@ def main():
             sorted_data = sorted(all_data, key=get_dividend_yield, reverse=True)
             
             # 結果を表示（最初の20件のみ）
-            print("\n" + "=" * 80)
+            print("\n" + "=" * 150)
             print("配当利回りの高い順に並び替えました")
-            print("=" * 80)
-            print(f"{'会社名':<25} {'銘柄コード':<10} {'進捗率':<10} {'PER':<10} {'PBR':<10} {'配当利回り':<10}")
-            print("=" * 80)
+            print("=" * 150)
+            print(f"{'会社名':<25} {'銘柄コード':<10} {'進捗率':<10} {'PER':<10} {'PBR':<10} {'配当利回り':<12} {'現在値':<12} {'52週高値':<12} {'52週安値':<12} {'指標':<10}")
+            print("=" * 150)
             display_count = min(20, len(sorted_data))
             for item in sorted_data[:display_count]:
-                print(f"{item['会社名']:<25} {item['銘柄コード']:<10} {item['進捗率']:<10} {item.get('PER', 'N/A'):<10} {item.get('PBR', 'N/A'):<10} {item.get('配当利回り', 'N/A'):<10}")
+                print(f"{item['会社名']:<25} {item['銘柄コード']:<10} {item['進捗率']:<10} {item.get('PER', 'N/A'):<10} {item.get('PBR', 'N/A'):<10} {item.get('配当利回り', 'N/A'):<12} {item.get('現在値', 'N/A'):<12} {item.get('52週高値', 'N/A'):<12} {item.get('52週安値', 'N/A'):<12} {item.get('指標', 'N/A'):<10}")
             
             if len(sorted_data) > display_count:
                 print(f"... 他 {len(sorted_data) - display_count} 件")
